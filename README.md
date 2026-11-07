@@ -12,6 +12,7 @@ Frontend (Angular + Tailwind): https://github.com/dast2003/sistema-bancario-angu
 - Consultar cuentas, abrir cuentas nuevas (ahorros o corriente, maximo 5).
 - Depositar, retirar (valida saldo) y transferir a cualquier cuenta del banco.
 - Historial de movimientos por cuenta.
+- Beneficiarios: inscribir cuentas de otras personas con un alias (maximo 20), mostrando el titular parcial (`Luis P.`).
 
 ## Ejecutar
 
@@ -48,6 +49,9 @@ Consola H2: JDBC URL `jdbc:h2:file:./data/bancodb`, usuario `sa`, sin contrasena
 | POST   | `/api/cuentas/{numero}/retiros`     | JWT  | Retirar                                |
 | GET    | `/api/cuentas/{numero}/movimientos` | JWT  | Historial                              |
 | POST   | `/api/transferencias`               | JWT  | Transferir                             |
+| GET    | `/api/beneficiarios`                | JWT  | Mis beneficiarios                      |
+| POST   | `/api/beneficiarios`                | JWT  | Inscribir `{ "alias", "numeroCuenta" }` |
+| DELETE | `/api/beneficiarios/{id}`           | JWT  | Eliminar beneficiario                  |
 
 Codigos de error: `400` datos invalidos · `401` sin token o credenciales malas · `404` cuenta no encontrada o ajena ·
 `409` email/documento duplicado · `422` saldo insuficiente.
@@ -66,13 +70,13 @@ Codigos de error: `400` datos invalidos · `401` sin token o credenciales malas 
 ```
 com.banco
 ├── config/       SecurityConfig (seguridad, CORS, BCrypt), OpenApiConfig (Swagger + JWT)
-├── controller/   AuthController, UsuarioController, CuentaController, TransferenciaController
+├── controller/   AuthController, UsuarioController, CuentaController, TransferenciaController, BeneficiarioController
 ├── dto/          Records de peticion/respuesta con validaciones
-├── entity/       Usuario, Cuenta, Transaccion y enums
+├── entity/       Usuario, Cuenta, Transaccion, Beneficiario y enums
 ├── exception/    Excepciones de negocio y GlobalExceptionHandler
 ├── repository/   Spring Data JPA
 ├── security/     JwtService, JwtAuthenticationFilter, UsuarioDetailsService
-└── service/      AuthService, CuentaService
+└── service/      AuthService, CuentaService, BeneficiarioService
 ```
 
 ## Tests
@@ -82,4 +86,4 @@ mvn test
 ```
 
 Pruebas de integracion: registro, login, deposito, retiro sin saldo, transferencia, acceso a cuenta ajena,
-rutas sin token, credenciales incorrectas, datos duplicados/invalidos y Swagger publico.
+rutas sin token, credenciales incorrectas, datos duplicados/invalidos, beneficiarios y Swagger publico.

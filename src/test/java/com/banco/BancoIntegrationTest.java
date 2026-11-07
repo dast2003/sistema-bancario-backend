@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -95,6 +96,48 @@ class BancoIntegrationTest {
 	}
 
 	@Test
+	void beneficiarios_inscribirListarValidarYEliminar() throws Exception {
+		String tokenBea = registrar("Bea", "1000000006", "bea@test.com");
+		String tokenCiro = registrar("Ciro", "1000000007", "ciro@test.com");
+		String cuentaBea = primeraCuenta(tokenBea);
+		String cuentaCiro = primeraCuenta(tokenCiro);
+
+		String creado = postJson("/api/beneficiarios", tokenBea, beneficiarioJson("Ciro arriendo", cuentaCiro))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.titular").value("Ciro P."))
+				.andExpect(jsonPath("$.numeroCuenta").value(cuentaCiro))
+				.andReturn().getResponse().getContentAsString();
+		Integer id = JsonPath.read(creado, "$.id");
+
+		postJson("/api/beneficiarios", tokenBea, beneficiarioJson("Repetido", cuentaCiro))
+				.andExpect(status().isConflict());
+		postJson("/api/beneficiarios", tokenBea, beneficiarioJson("Yo", cuentaBea))
+				.andExpect(status().isUnprocessableContent());
+		postJson("/api/beneficiarios", tokenBea, beneficiarioJson("Nadie", "0000000000"))
+				.andExpect(status().isNotFound());
+		postJson("/api/beneficiarios", tokenBea, beneficiarioJson("", "123"))
+				.andExpect(status().isBadRequest());
+
+		mvc.perform(get("/api/beneficiarios").header("Authorization", "Bearer " + tokenBea))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].alias").value("Ciro arriendo"));
+
+		// La lista es personal: Ciro no ve ni puede borrar el beneficiario de Bea
+		mvc.perform(get("/api/beneficiarios").header("Authorization", "Bearer " + tokenCiro))
+				.andExpect(jsonPath("$.length()").value(0));
+		mvc.perform(delete("/api/beneficiarios/" + id).header("Authorization", "Bearer " + tokenCiro))
+				.andExpect(status().isNotFound());
+
+		mvc.perform(delete("/api/beneficiarios/" + id).header("Authorization", "Bearer " + tokenBea))
+				.andExpect(status().isNoContent());
+		mvc.perform(get("/api/beneficiarios").header("Authorization", "Bearer " + tokenBea))
+				.andExpect(jsonPath("$.length()").value(0));
+
+		mvc.perform(get("/api/beneficiarios")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void swaggerEsPublico() throws Exception {
 		mvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
 	}
@@ -111,6 +154,11 @@ class BancoIntegrationTest {
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.read(body, "$[0].numero");
+	}
+
+	private static String beneficiarioJson(String alias, String numeroCuenta) {
+		return """
+				{"alias":"%s","numeroCuenta":"%s"}""".formatted(alias, numeroCuenta);
 	}
 
 	private static String registroJson(String nombre, String documento, String email) {
